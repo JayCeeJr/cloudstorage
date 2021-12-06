@@ -134,8 +134,6 @@ func NewClient(conf *cloudstorage.Config) (*s3.S3, *session.Session, error) {
 			return nil, nil, ErrNoAccessSecret
 		}
 		awsConf.WithCredentials(credentials.NewStaticCredentials(accessKey, secretKey, ""))
-	default:
-		return nil, nil, ErrNoAuth
 	}
 
 	if conf.BaseUrl != "" {
