@@ -509,6 +509,7 @@ func newObjectFromHead(f *FS, name string, o *s3.HeadObjectOutput) *object {
 		obj.updated = *o.LastModified
 	}
 	// metadata?
+	o.Metadata["ETag"] = o.ETag
 	obj.metadata, _ = convertMetaData(o.Metadata)
 	return obj
 }
