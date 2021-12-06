@@ -109,7 +109,8 @@ type (
 // NewClient create new AWS s3 Client.  Uses cloudstorage.Config to read
 // necessary config settings such as bucket, region, auth.
 func NewClient(conf *cloudstorage.Config) (*s3.S3, *session.Session, error) {
-
+	var sess *session.Session
+	var err error
 	awsConf := aws.NewConfig().
 		WithHTTPClient(http.DefaultClient).
 		WithMaxRetries(aws.UseServiceDefaultRetries).
@@ -122,20 +123,6 @@ func NewClient(conf *cloudstorage.Config) (*s3.S3, *session.Session, error) {
 	} else {
 		awsConf.WithRegion("us-east-1")
 	}
-
-	switch conf.AuthMethod {
-	case AuthAccessKey:
-		accessKey := conf.Settings.String(ConfKeyAccessKey)
-		if accessKey == "" {
-			return nil, nil, ErrNoAccessKey
-		}
-		secretKey := conf.Settings.String(ConfKeyAccessSecret)
-		if secretKey == "" {
-			return nil, nil, ErrNoAccessSecret
-		}
-		awsConf.WithCredentials(credentials.NewStaticCredentials(accessKey, secretKey, ""))
-	}
-
 	if conf.BaseUrl != "" {
 		awsConf.WithEndpoint(conf.BaseUrl).WithS3ForcePathStyle(true)
 	}
@@ -149,10 +136,32 @@ func NewClient(conf *cloudstorage.Config) (*s3.S3, *session.Session, error) {
 		awsConf.WithDisableSSL(true)
 	}
 
-	sess := session.New(awsConf)
-	if sess == nil {
-		return nil, nil, ErrNoS3Session
+	switch conf.AuthMethod {
+	case AuthAccessKey:
+		accessKey := conf.Settings.String(ConfKeyAccessKey)
+		if accessKey == "" {
+			return nil, nil, ErrNoAccessKey
+		}
+		secretKey := conf.Settings.String(ConfKeyAccessSecret)
+		if secretKey == "" {
+			return nil, nil, ErrNoAccessSecret
+		}
+		awsConf.WithCredentials(credentials.NewStaticCredentials(accessKey, secretKey, ""))
+	case "SharedCredentials":
+		sess, err = session.NewSessionWithOptions(session.Options{
+			SharedConfigState: session.SharedConfigEnable,
+			Config: *awsConf,
+		})
+		if err != nil {
+			return nil, nil, ErrNoS3Session
+		}
+	default:
+		sess, err = session.NewSession(awsConf)
+		if err != nil {
+			return nil, nil, ErrNoS3Session
+		}
 	}
+
 
 	s3Client := s3.New(sess)
 
